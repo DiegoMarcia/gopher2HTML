@@ -22,6 +22,6 @@ Seriously, apart from being useless, this file has not been tested.
 ```
 gopherFile=$(mktemp /tmp/gopher2html.X) \
 && printf "_RESOURCE_\r\n" | nc _SERVER_ _PORT_ > $gopherFile \
-&& awk -v title=_TITLE_ -f ./gopherAwk $gopherFile > $gopherFile.html \
+&& awk -v title=_TITLE_ -f ./gopher2HTML.awk $gopherFile > $gopherFile.html \
 && open -a Firefox $gopherFile.html \
 && rm $gopherFile```
