@@ -1,14 +1,16 @@
 # BEGIN block before any line is parsed, useful for inits
 BEGIN {
   FS = "\t";    # Field Separator
-  RS = "\r";    # Record Separator (no regex in BSD, took me a good hour)
+  RS = "\n";    # Record Separator (no regex in BSD, took me a good hour)
 
   isMenu = 0;
   isPre = 0;
   if (title == "") { title = ARGV[1]; }
+  class = "???";
 
   # HTML header
-  printf "<!DOCTYPE html>\
+  printf\
+"<!DOCTYPE html>\
 <html lang=\"en\">\
  <head>\
   <meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\">\
@@ -26,33 +28,37 @@ BEGIN {
 
 # No expression means always execute
 {
-  # Since I can't use "\r\n" as a separator, remove all '\n'
-  sub("\n", "");
+  # Since I can't use "\r\n" as a separator, remove all '\r'
+  sub("\r", "");
   # Generic HTML entities substitutions
   sub("&", "\\&amp;");
   sub("<", "\\&lt;");
   sub(">", "\\&gt;");
   sub("\"", "\\&quot;");
+
+  # Readable item types
+  class = selector_to_class(substr($1, 1, 1));
+  validItem = check_line_format();
 }
 
 
-# Check if the line looks like a menu item
-NF == 4 && $1 ~ /..+/ && $4 ~ /[0-9]+/ {
-  # If it was also the first line, we're most likely parsing a menu
-  if (NR == 1) { isMenu = 1; }
+# If the first line is a valid menu item, assume all lines are
+NR == 1 {
+  isMenu = validItem;
+}
 
-  # Split item type indicator and display string
-  if (isMenu == 1) {
-    $0 = substr($1, 1, 1) "\t" substr($1, 2) "\t" $2 "\t" $3 "\t" $4;
-  }
+
+# Split item type indicator and display string
+isMenu && validItem { 
+  $0 = substr($1, 1, 1) FS substr($1, 2) FS $2 FS $3 FS $4;
 }
 
 
 # "Info" menu line
-NF == 5 && $1 ~ /i/ && isMenu == 1 {
+isMenu && validItem && class == "INFO" {
   # Start an HTML preformatted block
-  if (isPre == 0) {
-    printf "  <pre>" ;
+  if (! isPre) {
+    printf "  <pre>";
     isPre = 1;
   }
   # Print display string only, the rest is gibberish
@@ -64,12 +70,9 @@ NF == 5 && $1 ~ /i/ && isMenu == 1 {
 
 
 # Item menu line
-NF == 5 && isMenu == 1 {
-  # Close previous preformatted block, if any
-  if (isPre == 1) { printf "  </pre>\n"; isPre = 0; }
-
-  # Fancy styling for different item types
-  class = selector_to_class($1);
+isMenu && validItem {
+  # Close current preformatted block, if any
+  if (isPre) { printf "  </pre>\n"; isPre = 0; }
 
   # Distinguish web links from others (some other types would need different handling)
   if (class == "HTML" && $3 ~ /^URL:/) { class = "WEB"; href = "http://" substr($3, 5); }
@@ -80,20 +83,29 @@ NF == 5 && isMenu == 1 {
 }
 
 
-# The line has not been detected as a menu item, assume plaintext
-isMenu == 0 {
-  if (isPre == 0) {
-    printf "  <pre>" ;
-    isPre = 1;
-  }
-  print;
+# A menu has been detected, but current line is not a valid menu item
+isMenu && ! validItem {
+  # By specification, last line is a full stop
+  if ($0 == "." && getline == 0) { exit 0; }
+  else { exit 1; }
+}
+
+
+# No menu detected, assume plaintext
+! isMenu {
+  printf "  <pre>";
+  do
+    print;
+  while (getline > 0) # put each next line in $0 until EOF
+  printf "  </pre>\n";
 }
 
 
 # END block after all lines have been parsed
 END {
-  if (isPre == 1) { printf "  </pre>\n" }
-  printf " </body>\
+  if (isPre) { printf "  </pre>\n" }
+  printf \
+" </body>\
 </html>\n";
 }
 
@@ -112,6 +124,7 @@ function selector_to_class(c) {
   if (c == 9) { return "BIN"; }
   if (c == "+") { return "MIRR"; }
   if (c == "g") { return "GIF"; }
+  if (c == "i") { return "INFO"; }
   if (c == "I") { return "IMG"; }
   if (c == "T") { return "TN3270"; }
   if (c == ":") { return "BITMAP"; }
@@ -125,4 +138,9 @@ function selector_to_class(c) {
   if (c == "P") { return "PDF"; }
   if (c == "X") { return "XTML"; }
   return "???";
+}
+
+
+function check_line_format() {
+  return NF == 4 && class != "???" && $4 ~ /[0-9]+/
 }
