@@ -39,7 +39,7 @@ network.protocol-handler.warn-external.gopher    false
 More on these can be found [here](http://kb.mozillazine.org/Network.protocol-handler.expose.%28protocol%29) and in related pages.
 
 Unfortunately, Firefox doesn't let you choose shell scripts (at least, on OSX), not even if you explicitly write down the script path in `~/Library/Application\ Support/Firefox/Profiles/_PROFILE_/handlers.json`.  
-You need to package your script as an app[^3]. This suffices to open your script, but is seems the URL doesn't get passed as an argument to it.  
+You need to package your script as an app[^3]. This suffices to open your script, but it seems the URL doesn't get passed as an argument to it.  
 I tried partially following instructions[^4] for an `Info.plist` file like this:
 ```
 <?xml version="1.0" encoding="UTF-8"?>
